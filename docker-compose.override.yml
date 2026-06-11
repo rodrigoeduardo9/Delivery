@@ -1,0 +1,25 @@
+# Development override for docker-compose.yml
+# Enables hot-reload and debugging for backend and web admin
+
+version: '3.9'
+
+services:
+  backend:
+    build:
+      target: development
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/package.json:/app/package.json
+    environment:
+      NODE_ENV: development
+      TS_NODE_DEV: true
+    command: npx ts-node-dev --respawn --transpile-only src/server.ts
+
+  web-admin:
+    build:
+      target: development
+    volumes:
+      - ./web/admin-panel/src:/app/src
+    environment:
+      NODE_ENV: development
+    command: npm run dev

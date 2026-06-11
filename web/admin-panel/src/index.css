@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-admin-200;
+  }
+
+  body {
+    @apply bg-admin-50 text-admin-900;
+  }
+
+  ::-webkit-scrollbar {
+    @apply w-1.5;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-admin-300 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-admin-400;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-xl border border-admin-200 shadow-sm;
+  }
+
+  .card-header {
+    @apply px-6 py-4 border-b border-admin-100;
+  }
+
+  .card-body {
+    @apply p-6;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-primary {
+    @apply btn bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500;
+  }
+
+  .btn-secondary {
+    @apply btn bg-white text-admin-700 border border-admin-300 hover:bg-admin-50 focus:ring-primary-500;
+  }
+
+  .btn-danger {
+    @apply btn bg-danger-600 text-white hover:bg-danger-700 focus:ring-danger-500;
+  }
+
+  .btn-success {
+    @apply btn bg-success-600 text-white hover:bg-success-700 focus:ring-success-500;
+  }
+
+  .btn-warning {
+    @apply btn bg-warning-500 text-white hover:bg-warning-600 focus:ring-warning-500;
+  }
+
+  .btn-sm {
+    @apply px-3 py-1.5 text-xs;
+  }
+
+  .btn-lg {
+    @apply px-6 py-3 text-base;
+  }
+
+  .input {
+    @apply block w-full rounded-lg border border-admin-300 bg-white px-3 py-2 text-sm placeholder-admin-400 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:bg-admin-100 disabled:text-admin-500;
+  }
+
+  .label {
+    @apply block text-sm font-medium text-admin-700 mb-1;
+  }
+
+  .select {
+    @apply input appearance-none cursor-pointer;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+}

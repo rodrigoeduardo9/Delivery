@@ -1,0 +1,146 @@
+version: '3.9'
+
+services:
+  # =============================================
+  # PostgreSQL Database
+  # =============================================
+  postgres:
+    image: postgis/postgis:16-3.4-alpine
+    container_name: delivery-db
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_DB: ${DB_NAME:-delivery_db}
+      POSTGRES_USER: ${DB_USER:-delivery_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-delivery_pass}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/src/database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-delivery_user} -d ${DB_NAME:-delivery_db}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =============================================
+  # Redis Cache & Session Store
+  # =============================================
+  redis:
+    image: redis:7.2-alpine
+    container_name: delivery-redis
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-delivery_redis_pass}
+    healthcheck:
+      test: ['CMD', 'redis-cli', '--raw', 'incr', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # =============================================
+  # Backend API (Node.js + Express)
+  # =============================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: delivery-backend
+    restart: unless-stopped
+    ports:
+      - '${BACKEND_PORT:-3000}:3000'
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-delivery_db}
+      DB_USER: ${DB_USER:-delivery_user}
+      DB_PASSWORD: ${DB_PASSWORD:-delivery_pass}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-delivery_redis_pass}
+      JWT_SECRET: ${JWT_SECRET:-change_me_in_production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_too_in_production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      MERCADO_PAGO_ACCESS_TOKEN: ${MERCADO_PAGO_ACCESS_TOKEN:-}
+      FCM_SERVICE_ACCOUNT_PATH: /run/secrets/fcm_service_account
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+    volumes:
+      - backend_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    secrets:
+      - fcm_service_account
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3000/api/v1/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # =============================================
+  # Admin Web Panel (React + Vite)
+  # =============================================
+  web-admin:
+    build:
+      context: ./web/admin-panel
+      dockerfile: Dockerfile
+      target: production
+    container_name: delivery-web-admin
+    restart: unless-stopped
+    ports:
+      - '${ADMIN_PORT:-5173}:80'
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/api/v1}
+    depends_on:
+      - backend
+
+  # =============================================
+  # Nginx Reverse Proxy
+  # =============================================
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: delivery-nginx
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./docker/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - web-admin
+    command: >
+      /bin/sh -c "
+      if [ ! -f /etc/nginx/ssl/cert.pem ]; then
+        apk add --no-cache openssl &&
+        mkdir -p /etc/nginx/ssl &&
+        openssl req -x509 -nodes -days 365 -newkey rsa:2048
+          -keyout /etc/nginx/ssl/key.pem
+          -out /etc/nginx/ssl/cert.pem
+          -subj '/C=MX/ST=CDMX/L=Mexico/O=Delivery/CN=localhost';
+      fi;
+      nginx -g 'daemon off;'
+      "
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_uploads:
+
+secrets:
+  fcm_service_account:
+    file: ./docker/secrets/fcm_service_account.json

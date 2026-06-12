@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
+import path from 'path';
 import { config } from './config';
 import { generalLimiter } from './middleware/rateLimiter';
 import { errorHandler } from './middleware/errorHandler';
@@ -20,10 +21,12 @@ import routesRoutes from './modules/routes/routes.routes';
 import notificationsRoutes from './modules/notifications/notifications.routes';
 import chatbotRoutes from './modules/chatbot/chatbot.routes';
 import reportsRoutes from './modules/reports/reports.routes';
+import webhookRoutes from './modules/payments/webhook.routes';
+import auditRoutes from './modules/audit/audit.routes';
 
 const app = express();
 
-app.use(helmet());
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(cors({
   origin: config.corsOrigin,
   credentials: true,
@@ -32,6 +35,9 @@ app.use(cors({
 }));
 app.use(compression());
 app.use(cookieParser());
+
+app.use('/webhooks', express.raw({ type: 'application/json' }), webhookRoutes);
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -44,6 +50,8 @@ if (config.nodeEnv === 'development') {
 }
 
 app.use(generalLimiter);
+
+app.use('/uploads', express.static(path.resolve(config.upload.dir)));
 
 app.get('/api/v1/health', (req, res) => {
   res.json({
@@ -65,6 +73,7 @@ app.use('/api/v1/routes', routesRoutes);
 app.use('/api/v1/notifications', notificationsRoutes);
 app.use('/api/v1/chatbot', chatbotRoutes);
 app.use('/api/v1/reports', reportsRoutes);
+app.use('/api/v1/audit-logs', auditRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

@@ -16,6 +16,7 @@ router.put('/me/location', authenticate, roleCheck('driver'), validate(updateLoc
 router.put('/me/status', authenticate, roleCheck('driver'), validate(updateStatusValidation), driversController.updateStatus);
 router.get('/me/earnings', authenticate, roleCheck('driver'), driversController.getEarnings);
 router.get('/me/history', authenticate, roleCheck('driver'), driversController.getMyHistory);
+router.post('/me/documents', authenticate, roleCheck('driver'), driversController.uploadDriverDocument);
 
 router.get('/orders/available', authenticate, roleCheck('driver'), driversController.getAvailableOrders);
 router.put('/orders/:id/accept', authenticate, roleCheck('driver'), driversController.acceptOrder);

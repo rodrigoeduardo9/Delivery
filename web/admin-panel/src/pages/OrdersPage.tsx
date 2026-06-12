@@ -39,7 +39,7 @@ export default function OrdersPage() {
     },
   });
 
-  const { data: driversData } = useApi<PaginatedResponse<{ id: string; name: string }>>('/drivers', {
+  const { data: driversData } = useApi<PaginatedResponse<{ id: string; name: string }>>('/drivers/admin', {
     params: { status: 'online', per_page: 100 },
   });
 
@@ -312,7 +312,7 @@ export default function OrdersPage() {
                       )}
                     </div>
                     <div>
-                      <p className="font-medium text-sm capitalize">{entry.status.replace(/_/g, ' ')}</p>
+                       <p className="font-medium text-sm capitalize">{(entry.status || '').replace(/_/g, ' ')}</p>
                       <p className="text-xs text-admin-500">{formatDateTime(entry.timestamp)}</p>
                       {entry.note && <p className="text-xs text-admin-600">{entry.note}</p>}
                     </div>

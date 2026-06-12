@@ -114,7 +114,7 @@ export default function Sidebar() {
         {!collapsed && user && (
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-600 text-sm font-bold">
-              {user.name.charAt(0).toUpperCase()}
+              {(user.name || 'A').charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{user.name}</p>

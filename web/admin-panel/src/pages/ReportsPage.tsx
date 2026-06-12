@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -6,7 +6,9 @@ import {
 import { BarChart3, TrendingUp, DollarSign, Bike, Store } from 'lucide-react';
 import DateRangePicker from '../components/ui/DateRangePicker';
 import ExportButton from '../components/ui/ExportButton';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
 import ErrorBoundary from '../components/ui/ErrorBoundary';
+import { useApi } from '../hooks/useApi';
 import { formatCurrency, formatNumber } from '../utils/formatters';
 import { exportToCSV } from '../utils/exportHelpers';
 
@@ -23,65 +25,50 @@ const TABS: { key: ReportTab; label: string }[] = [
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
 const PIE_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
-const monthlyData = [
-  { month: 'Jan', orders: 1250, revenue: 185000, delivery_time: 32 },
-  { month: 'Feb', orders: 1380, revenue: 202000, delivery_time: 30 },
-  { month: 'Mar', orders: 1420, revenue: 218000, delivery_time: 31 },
-  { month: 'Apr', orders: 1510, revenue: 235000, delivery_time: 29 },
-  { month: 'May', orders: 1680, revenue: 252000, delivery_time: 28 },
-  { month: 'Jun', orders: 1750, revenue: 271000, delivery_time: 27 },
-];
-
-const orderStatusData = [
-  { name: 'Delivered', value: 65 },
-  { name: 'In Transit', value: 15 },
-  { name: 'Preparing', value: 10 },
-  { name: 'Pending', value: 7 },
-  { name: 'Cancelled', value: 3 },
-];
-
-const revenueSplitData = [
-  { name: 'Platform', value: 75 },
-  { name: 'Restaurant', value: 25 },
-];
-
-const paymentMethods = [
-  { name: 'Card', value: 55 },
-  { name: 'Cash', value: 30 },
-  { name: 'Wallet', value: 15 },
-];
-
-const topDrivers = [
-  { name: 'Carlos López', deliveries: 145, rating: 4.9, earnings: 28500 },
-  { name: 'María García', deliveries: 132, rating: 4.8, earnings: 26100 },
-  { name: 'Juan Martínez', deliveries: 128, rating: 4.7, earnings: 24300 },
-  { name: 'Ana Rodríguez', deliveries: 115, rating: 4.9, earnings: 22800 },
-  { name: 'Pedro Sánchez', deliveries: 108, rating: 4.6, earnings: 21400 },
-];
-
-const topRestaurants = [
-  { name: 'Pizza Express', orders: 1230, revenue: 184500, rating: 4.7 },
-  { name: 'Sushi Master', orders: 980, revenue: 156800, rating: 4.8 },
-  { name: 'Burger House', orders: 875, revenue: 131250, rating: 4.5 },
-  { name: 'Taco Loco', orders: 820, revenue: 114800, rating: 4.6 },
-  { name: 'Pasta Bella', orders: 740, revenue: 111000, rating: 4.7 },
-];
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState<ReportTab>('overview');
   const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({ start: null, end: null });
+  const params = dateRange.start && dateRange.end ? `?start_date=${dateRange.start.toISOString()}&end_date=${dateRange.end.toISOString()}` : '';
+
+  const { data: overview, isLoading: loadingOverview } = useApi<any>(activeTab === 'overview' ? `/reports/admin/overview` : null);
+  const { data: revenueReport, isLoading: loadingRevenue } = useApi<any>(activeTab === 'revenue' ? `/reports/admin/revenue${params}` : null);
+  const { data: driverData } = useApi<any>(activeTab === 'drivers' ? '/reports/admin/drivers' : null);
+  const { data: restaurantData } = useApi<any>(activeTab === 'restaurants' ? '/reports/admin/restaurants' : null);
+  const { data: orderReport } = useApi<any>(activeTab === 'orders' ? `/reports/admin/orders${params}` : null);
+
+  const overviewData = overview?.data;
+  const revenueData = revenueReport?.data;
+  const drivers = driverData?.data || [];
+  const restaurantsData = restaurantData?.data || [];
+  const ordersReportData = orderReport?.data || [];
+
+  const monthlyChartData = useMemo(() => {
+    if (!revenueData?.daily) return [];
+    return revenueData.daily.map((d: any) => {
+      const date = new Date(d.date);
+      return {
+        month: MONTHS[date.getMonth()],
+        orders: Number(d.order_count),
+        revenue: Number(d.revenue),
+      };
+    }).reverse();
+  }, [revenueData]);
 
   const handleExport = useCallback((format: 'csv' | 'pdf' | 'excel') => {
     const headers = ['Metric', 'Value'];
-    const data = [
-      { Metric: 'Total Orders', Value: '1,750' },
-      { Metric: 'Total Revenue', Value: '$271,000' },
-      { Metric: 'Avg Delivery Time', Value: '27 min' },
-      { Metric: 'Active Drivers', Value: '48' },
-      { Metric: 'Active Restaurants', Value: '156' },
-    ];
+    const data = overviewData
+      ? [
+          { Metric: 'Total Orders', Value: String(overviewData.orders_last_7d || 0) },
+          { Metric: 'Total Revenue (30d)', Value: formatCurrency(overviewData.revenue_last_30d || 0) },
+          { Metric: 'Pending Orders', Value: String(overviewData.pending_orders || 0) },
+          { Metric: 'Active Drivers', Value: String(overviewData.available_drivers || 0) },
+          { Metric: 'Restaurants', Value: String(overviewData.total_restaurants || 0) },
+        ]
+      : [{ Metric: 'N/A', Value: 'N/A' }];
     exportToCSV(data, headers, `report-${activeTab}`);
-  }, [activeTab]);
+  }, [activeTab, overviewData]);
 
   return (
     <ErrorBoundary>
@@ -113,7 +100,7 @@ export default function ReportsPage() {
           ))}
         </div>
 
-        {activeTab === 'overview' && (
+        {loadingOverview && activeTab === 'overview' ? <LoadingSpinner /> : activeTab === 'overview' && (
           <div className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="card p-6">
@@ -122,8 +109,8 @@ export default function ReportsPage() {
                     <BarChart3 className="h-6 w-6" />
                   </div>
                   <div>
-                    <p className="text-sm text-admin-500">Total Orders</p>
-                    <p className="text-2xl font-bold">{formatNumber(1750)}</p>
+                    <p className="text-sm text-admin-500">Orders (7d)</p>
+                    <p className="text-2xl font-bold">{formatNumber(overviewData?.orders_last_7d || 0)}</p>
                   </div>
                 </div>
               </div>
@@ -133,8 +120,8 @@ export default function ReportsPage() {
                     <DollarSign className="h-6 w-6" />
                   </div>
                   <div>
-                    <p className="text-sm text-admin-500">Total Revenue</p>
-                    <p className="text-2xl font-bold">{formatCurrency(271000)}</p>
+                    <p className="text-sm text-admin-500">Revenue (30d)</p>
+                    <p className="text-2xl font-bold">{formatCurrency(overviewData?.revenue_last_30d || 0)}</p>
                   </div>
                 </div>
               </div>
@@ -144,8 +131,8 @@ export default function ReportsPage() {
                     <Bike className="h-6 w-6" />
                   </div>
                   <div>
-                    <p className="text-sm text-admin-500">Active Drivers</p>
-                    <p className="text-2xl font-bold">48</p>
+                    <p className="text-sm text-admin-500">Available Drivers</p>
+                    <p className="text-2xl font-bold">{overviewData?.available_drivers || 0}</p>
                   </div>
                 </div>
               </div>
@@ -156,16 +143,16 @@ export default function ReportsPage() {
                   </div>
                   <div>
                     <p className="text-sm text-admin-500">Restaurants</p>
-                    <p className="text-2xl font-bold">156</p>
+                    <p className="text-2xl font-bold">{overviewData?.total_restaurants || 0}</p>
                   </div>
                 </div>
               </div>
             </div>
             <div className="grid gap-6 lg:grid-cols-2">
               <div className="card p-6">
-                <h3 className="mb-4 text-lg font-semibold">Orders & Revenue</h3>
+                <h3 className="mb-4 text-lg font-semibold">Orders & Revenue (Daily)</h3>
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={monthlyData}>
+                  <BarChart data={monthlyChartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                     <XAxis dataKey="month" stroke="#94a3b8" />
                     <YAxis stroke="#94a3b8" />
@@ -177,16 +164,27 @@ export default function ReportsPage() {
                 </ResponsiveContainer>
               </div>
               <div className="card p-6">
-                <h3 className="mb-4 text-lg font-semibold">Average Delivery Time</h3>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={monthlyData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis dataKey="month" stroke="#94a3b8" />
-                    <YAxis stroke="#94a3b8" domain={[0, 40]} />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="delivery_time" stroke="#f59e0b" strokeWidth={2} name="Minutes" />
-                  </LineChart>
-                </ResponsiveContainer>
+                <h3 className="mb-4 text-lg font-semibold">Revenue Summary</h3>
+                {revenueData?.summary && (
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-admin-500">Total Orders</span>
+                      <span className="font-semibold">{formatNumber(revenueData.summary.total_orders)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-admin-500">Total Revenue</span>
+                      <span className="font-semibold">{formatCurrency(revenueData.summary.total_revenue)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-admin-500">Platform Fees</span>
+                      <span className="font-semibold">{formatCurrency(revenueData.summary.total_platform_fees)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-admin-500">Avg Order Value</span>
+                      <span className="font-semibold">{formatCurrency(revenueData.summary.avg_order_value)}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -194,50 +192,39 @@ export default function ReportsPage() {
 
         {activeTab === 'orders' && (
           <div className="grid gap-6 lg:grid-cols-2">
-            <div className="card p-6">
-              <h3 className="mb-4 text-lg font-semibold">Orders by Status</h3>
-              <ResponsiveContainer width="100%" height={350}>
-                <PieChart>
-                  <Pie
-                    data={orderStatusData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={120}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {orderStatusData.map((_, index) => (
-                      <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="card p-6">
-              <h3 className="mb-4 text-lg font-semibold">Orders Over Time</h3>
-              <ResponsiveContainer width="100%" height={350}>
-                <LineChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="month" stroke="#94a3b8" />
-                  <YAxis stroke="#94a3b8" />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="orders" stroke="#6366f1" strokeWidth={2} dot={{ fill: '#6366f1' }} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
             <div className="card p-6 lg:col-span-2">
-              <h3 className="mb-4 text-lg font-semibold">Average Delivery Time</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="month" stroke="#94a3b8" />
-                  <YAxis stroke="#94a3b8" />
-                  <Tooltip />
-                  <Bar dataKey="delivery_time" fill="#f59e0b" radius={[4, 4, 0, 0]} name="Avg minutes" />
-                </BarChart>
-              </ResponsiveContainer>
+              <h3 className="mb-4 text-lg font-semibold">Recent Orders</h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-admin-50">
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-admin-500">Order #</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-admin-500">Customer</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-admin-500">Restaurant</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-admin-500">Total</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-admin-500">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-admin-500">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {ordersReportData.length === 0 && (
+                      <tr><td colSpan={6} className="px-4 py-8 text-center text-admin-400">No orders found</td></tr>
+                    )}
+                    {ordersReportData.map((o: any) => (
+                      <tr key={o.id} className="hover:bg-admin-50">
+                        <td className="px-4 py-3 font-medium">{o.order_number}</td>
+                        <td className="px-4 py-3">{o.customer_name}</td>
+                        <td className="px-4 py-3">{o.restaurant_name}</td>
+                        <td className="px-4 py-3 text-right font-medium">{formatCurrency(o.total)}</td>
+                        <td className="px-4 py-3">
+                          <span className="badge badge-{o.status}">{o.status}</span>
+                        </td>
+                        <td className="px-4 py-3 text-admin-500">{new Date(o.created_at).toLocaleDateString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -246,53 +233,40 @@ export default function ReportsPage() {
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="card p-6">
               <h3 className="mb-4 text-lg font-semibold">Revenue Over Time</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis dataKey="month" stroke="#94a3b8" />
-                  <YAxis stroke="#94a3b8" />
-                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                  <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
+              {loadingRevenue ? <LoadingSpinner /> : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={monthlyChartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="month" stroke="#94a3b8" />
+                    <YAxis stroke="#94a3b8" />
+                    <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                    <Line type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </div>
             <div className="card p-6">
-              <h3 className="mb-4 text-lg font-semibold">Revenue by Restaurant</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={topRestaurants} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                  <XAxis type="number" stroke="#94a3b8" />
-                  <YAxis dataKey="name" type="category" stroke="#94a3b8" width={100} />
-                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                  <Bar dataKey="revenue" fill="#6366f1" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="card p-6">
-              <h3 className="mb-4 text-lg font-semibold">Payment Methods</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie data={paymentMethods} cx="50%" cy="50%" outerRadius={100} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                    {paymentMethods.map((_, index) => (
-                      <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="card p-6">
-              <h3 className="mb-4 text-lg font-semibold">Platform vs Restaurant Split</h3>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie data={revenueSplitData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                    {revenueSplitData.map((_, index) => (
-                      <Cell key={index} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              <h3 className="mb-4 text-lg font-semibold">Revenue Summary</h3>
+              {revenueData?.summary && (
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-admin-500">Total Orders</span>
+                    <span className="font-semibold">{formatNumber(revenueData.summary.total_orders)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-admin-500">Total Revenue</span>
+                    <span className="font-semibold">{formatCurrency(revenueData.summary.total_revenue)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-admin-500">Platform Fees</span>
+                    <span className="font-semibold">{formatCurrency(revenueData.summary.total_platform_fees)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-admin-500">Avg Order Value</span>
+                    <span className="font-semibold">{formatCurrency(revenueData.summary.avg_order_value)}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -301,7 +275,7 @@ export default function ReportsPage() {
           <div className="space-y-6">
             <div className="card">
               <div className="card-header">
-                <h3 className="text-lg font-semibold">Top Drivers</h3>
+                <h3 className="text-lg font-semibold">Driver Performance</h3>
               </div>
               <table className="w-full text-sm">
                 <thead>
@@ -310,15 +284,20 @@ export default function ReportsPage() {
                     <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-admin-500">Deliveries</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-admin-500">Rating</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-admin-500">Earnings</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-admin-500">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {topDrivers.map((driver) => (
-                    <tr key={driver.name} className="hover:bg-admin-50">
-                      <td className="px-4 py-3 font-medium">{driver.name}</td>
-                      <td className="px-4 py-3 text-right">{formatNumber(driver.deliveries)}</td>
-                      <td className="px-4 py-3 text-right">{driver.rating.toFixed(1)}</td>
-                      <td className="px-4 py-3 text-right font-medium">{formatCurrency(driver.earnings)}</td>
+                  {drivers.length === 0 && (
+                    <tr><td colSpan={5} className="px-4 py-8 text-center text-admin-400">No drivers found</td></tr>
+                  )}
+                  {drivers.map((d: any) => (
+                    <tr key={d.id} className="hover:bg-admin-50">
+                      <td className="px-4 py-3 font-medium">{`${d.first_name || ''} ${d.last_name || ''}`.trim()}</td>
+                      <td className="px-4 py-3 text-right">{formatNumber(d.total_deliveries || 0)}</td>
+                      <td className="px-4 py-3 text-right">{d.rating ? Number(d.rating).toFixed(1) : 'N/A'}</td>
+                      <td className="px-4 py-3 text-right font-medium">{formatCurrency(d.total_earned || 0)}</td>
+                      <td className="px-4 py-3">{d.status}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -331,7 +310,7 @@ export default function ReportsPage() {
           <div className="space-y-6">
             <div className="card">
               <div className="card-header">
-                <h3 className="text-lg font-semibold">Top Restaurants</h3>
+                <h3 className="text-lg font-semibold">Restaurant Performance</h3>
               </div>
               <table className="w-full text-sm">
                 <thead>
@@ -340,15 +319,20 @@ export default function ReportsPage() {
                     <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-admin-500">Orders</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-admin-500">Revenue</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold uppercase text-admin-500">Rating</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase text-admin-500">Owner</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {topRestaurants.map((r) => (
-                    <tr key={r.name} className="hover:bg-admin-50">
+                  {restaurantsData.length === 0 && (
+                    <tr><td colSpan={5} className="px-4 py-8 text-center text-admin-400">No restaurants found</td></tr>
+                  )}
+                  {restaurantsData.map((r: any) => (
+                    <tr key={r.id} className="hover:bg-admin-50">
                       <td className="px-4 py-3 font-medium">{r.name}</td>
-                      <td className="px-4 py-3 text-right">{formatNumber(r.orders)}</td>
-                      <td className="px-4 py-3 text-right font-medium">{formatCurrency(r.revenue)}</td>
-                      <td className="px-4 py-3 text-right">{r.rating.toFixed(1)}</td>
+                      <td className="px-4 py-3 text-right">{formatNumber(r.total_orders || 0)}</td>
+                      <td className="px-4 py-3 text-right font-medium">{formatCurrency(r.total_revenue || 0)}</td>
+                      <td className="px-4 py-3 text-right">{r.rating ? Number(r.rating).toFixed(1) : 'N/A'}</td>
+                      <td className="px-4 py-3">{r.owner_name}</td>
                     </tr>
                   ))}
                 </tbody>

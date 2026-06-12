@@ -60,7 +60,7 @@ export default function RestaurantDetailPage() {
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-50 text-2xl font-bold text-primary-600">
-                {restaurant.name.charAt(0)}
+                {(restaurant.name ?? '?').charAt(0)}
               </div>
               <div>
                 <div className="flex items-center gap-3">
@@ -69,7 +69,7 @@ export default function RestaurantDetailPage() {
                 </div>
                 <p className="text-admin-500">{restaurant.category} • {restaurant.owner}</p>
                 <div className="mt-1 flex items-center gap-4 text-sm">
-                  <span className="flex items-center gap-1"><Star className="h-4 w-4 text-warning-500 fill-warning-500" /> {restaurant.rating?.toFixed(1) || '-'}</span>
+                  <span className="flex items-center gap-1"><Star className="h-4 w-4 text-warning-500 fill-warning-500" /> {restaurant.rating != null ? Number(restaurant.rating).toFixed(1) : '-'}</span>
                   <span className="text-admin-400">{restaurant.total_orders} total orders</span>
                   <span className="text-admin-400">{formatCurrency(restaurant.total_revenue)} total revenue</span>
                 </div>
@@ -134,7 +134,7 @@ export default function RestaurantDetailPage() {
                 </div>
                 <div>
                   <p className="text-sm text-admin-500">Rating</p>
-                  <p className="text-2xl font-bold">{restaurant.rating?.toFixed(1) || '-'}</p>
+                  <p className="text-2xl font-bold">{restaurant.rating != null ? Number(restaurant.rating).toFixed(1) : '-'}</p>
                 </div>
               </div>
             </div>

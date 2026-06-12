@@ -88,7 +88,7 @@ export default function AuditLogPage() {
         accessorKey: 'entity_type',
         header: 'Entity',
         cell: ({ getValue }) => (
-          <span className="capitalize text-admin-700">{(getValue() as string).replace(/_/g, ' ')}</span>
+          <span className="capitalize text-admin-700">{((getValue() as string) || '').replace(/_/g, ' ')}</span>
         ),
       },
       {
@@ -179,7 +179,7 @@ export default function AuditLogPage() {
               </div>
               <div>
                 <p className="text-xs text-admin-500 uppercase mb-1">Entity</p>
-                <p className="font-medium capitalize">{selectedLog.entity_type.replace(/_/g, ' ')}</p>
+                <p className="font-medium capitalize">{(selectedLog.entity_type || '').replace(/_/g, ' ')}</p>
               </div>
               <div>
                 <p className="text-xs text-admin-500 uppercase mb-1">Entity ID</p>

@@ -128,6 +128,15 @@ export const calculateOrder = catchAsync(async (req: Request, res: Response) => 
   }
 });
 
+export const reorder = catchAsync(async (req: Request, res: Response) => {
+  try {
+    const order = await ordersService.reorderFromOrder(req.params.id, req.user!.userId);
+    return successResponse(res, { order }, 201, 'Order placed successfully');
+  } catch (err: any) {
+    return errorResponse(res, err.message, 400);
+  }
+});
+
 export const getRestaurantCurrentOrders = catchAsync(async (req: Request, res: Response) => {
   const { orders } = await ordersService.findOrders(
     undefined, req.params.id, undefined, 'active', 1, 50

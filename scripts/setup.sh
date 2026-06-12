@@ -107,6 +107,11 @@ if command -v psql >/dev/null 2>&1; then
     PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f backend/src/database/schema.sql 2>/dev/null && \
         log "Database schema applied." || \
         warn "Could not apply schema automatically. Apply manually from backend/src/database/schema.sql"
+
+    # Apply seed data
+    PGPASSWORD=$DB_PASSWORD psql -h $DB_HOST -U $DB_USER -d $DB_NAME -f backend/src/database/seed.sql 2>/dev/null && \
+        log "Seed data applied." || \
+        warn "Could not apply seed data."
 else
     warn "psql not found. Apply schema manually from backend/src/database/schema.sql"
 fi

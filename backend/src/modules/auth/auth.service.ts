@@ -53,15 +53,16 @@ export async function createUser(
   firstName: string,
   lastName: string,
   phone?: string,
-  role?: string
+  role?: string,
+  verificationToken?: string
 ): Promise<User> {
   const passwordHash = await hashPassword(password);
   const userRole = role || UserRole.CUSTOMER;
 
   const result = await query(
-    `INSERT INTO user_account (email, password_hash, first_name, last_name, phone, role)
-     VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-    [email, passwordHash, firstName, lastName, phone || null, userRole]
+    `INSERT INTO user_account (email, password_hash, first_name, last_name, phone, role, email_verification_token)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    [email, passwordHash, firstName, lastName, phone || null, userRole, verificationToken || null]
   );
 
   const user = result.rows[0];

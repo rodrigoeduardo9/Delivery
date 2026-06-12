@@ -88,7 +88,7 @@ export default function UsersPage() {
         cell: ({ row }) => (
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-50 text-primary-600 font-bold">
-              {row.original.name.charAt(0)}
+              {(row.original.name ?? '?').charAt(0)}
             </div>
             <div>
               <p className="font-medium text-admin-900">{row.original.name}</p>

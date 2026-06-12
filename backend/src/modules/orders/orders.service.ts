@@ -1,6 +1,8 @@
 import { query, getClient } from '../../config/database';
 import { Order, OrderItem, OrderItemExtra } from '../../shared/interfaces';
 import { OrderStatus } from '../../shared/enums';
+import { emitOrderEvent } from '../../services/websocket.service';
+import { triggerOrderNotification } from '../../services/notification-trigger.service';
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   [OrderStatus.PENDING]: [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
@@ -19,22 +21,21 @@ export function isValidTransition(current: string, next: string): boolean {
   return allowed ? allowed.includes(next) : false;
 }
 
+const generatedNumbers = new Set<string>();
+
 export async function generateOrderNumber(): Promise<string> {
   const datePart = new Date().toISOString().slice(2, 10).replace(/-/g, '');
-  const randomPart = Math.random().toString(36).substring(2, 7).toUpperCase();
-  const result = await query(
-    `INSERT INTO orders (order_number, customer_id, restaurant_id, subtotal, delivery_fee, total)
-     VALUES ($1, '00000000-0000-0000-0000-000000000000', '00000000-0000-0000-0000-000000000000', 0, 0, 0)
-     ON CONFLICT DO NOTHING RETURNING order_number`,
-    [`DEL-${datePart}-${randomPart}`]
-  );
+  let orderNumber: string;
+  let attempts = 0;
+  do {
+    const randomPart = Math.random().toString(36).substring(2, 7).toUpperCase();
+    orderNumber = `DEL-${datePart}-${randomPart}`;
+    attempts++;
+    if (attempts > 20) throw new Error('Could not generate unique order number');
+  } while (generatedNumbers.has(orderNumber));
 
-  if (result.rows.length > 0) {
-    await query(`DELETE FROM orders WHERE order_number = $1`, [result.rows[0].order_number]);
-    return result.rows[0].order_number;
-  }
-
-  return generateOrderNumber();
+  generatedNumbers.add(orderNumber);
+  return orderNumber;
 }
 
 export async function calculateOrderTotal(
@@ -363,6 +364,16 @@ export async function updateOrderStatus(
     await client.query('COMMIT');
 
     const result = await client.query('SELECT * FROM orders WHERE id = $1', [orderId]);
+
+    emitOrderEvent(orderId, 'order:status_changed', {
+      orderId,
+      status,
+      previousStatus: order.rows[0].status,
+      timestamp: new Date().toISOString(),
+    });
+
+    triggerOrderNotification(orderId, status as any).catch(() => {});
+
     return result.rows[0];
   } catch (error) {
     await client.query('ROLLBACK');
@@ -382,6 +393,36 @@ export async function cancelOrder(orderId: string, userId: string, reason?: stri
   }
 
   return updateOrderStatus(orderId, OrderStatus.CANCELLED, userId, reason);
+}
+
+export async function reorderFromOrder(orderId: string, customerId: string): Promise<Order> {
+  const originalOrder = await findOrderById(orderId);
+  if (!originalOrder) throw new Error('Original order not found');
+  if (originalOrder.customer_id !== customerId) throw new Error('Not your order');
+
+  const items = originalOrder.items.map((item: any) => ({
+    product_id: item.product_id,
+    variant_id: item.variant_id,
+    quantity: item.quantity,
+    special_instructions: item.special_instructions,
+    extras: (item.extras || []).map((e: any) => ({
+      extra_id: e.id,
+      quantity: e.quantity,
+    })),
+  }));
+
+  const totals = await calculateOrderTotal(originalOrder.restaurant_id, items);
+
+  return createOrder(customerId, {
+    restaurant_id: originalOrder.restaurant_id,
+    items,
+    payment_method: originalOrder.payment_method,
+    delivery_address_id: originalOrder.delivery_address_id,
+    delivery_latitude: originalOrder.delivery_latitude,
+    delivery_longitude: originalOrder.delivery_longitude,
+    delivery_instructions: originalOrder.delivery_instructions,
+    tip: originalOrder.tip,
+  }, totals);
 }
 
 export async function rateOrder(

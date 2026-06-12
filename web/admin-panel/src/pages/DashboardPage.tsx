@@ -38,7 +38,8 @@ export default function DashboardPage() {
     );
   }
 
-  if (!data) return null;
+  const d = (data as any)?.data;
+  if (!d) return null;
 
   return (
     <ErrorBoundary>
@@ -51,27 +52,27 @@ export default function DashboardPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             label="Total Orders Today"
-            value={formatNumber(data.total_orders_today)}
+            value={formatNumber(d.total_orders_today)}
             icon={<ShoppingCart className="h-6 w-6" />}
-            trend={{ value: data.orders_change_percent, isPositive: data.orders_change_percent >= 0 }}
+            trend={{ value: d.orders_change_percent, isPositive: d.orders_change_percent >= 0 }}
           />
           <StatCard
             label="Revenue Today"
-            value={formatCurrency(data.total_revenue_today)}
+            value={formatCurrency(d.total_revenue_today)}
             icon={<DollarSign className="h-6 w-6" />}
-            trend={{ value: data.revenue_change_percent, isPositive: data.revenue_change_percent >= 0 }}
+            trend={{ value: d.revenue_change_percent, isPositive: d.revenue_change_percent >= 0 }}
           />
           <StatCard
             label="Active Drivers"
-            value={formatNumber(data.active_drivers)}
+            value={formatNumber(d.active_drivers)}
             icon={<Bike className="h-6 w-6" />}
-            trend={{ value: data.drivers_change_percent, isPositive: data.drivers_change_percent >= 0 }}
+            trend={{ value: d.drivers_change_percent, isPositive: d.drivers_change_percent >= 0 }}
           />
           <StatCard
             label="Active Restaurants"
-            value={formatNumber(data.active_restaurants)}
+            value={formatNumber(d.active_restaurants)}
             icon={<Store className="h-6 w-6" />}
-            trend={{ value: data.restaurants_change_percent, isPositive: data.restaurants_change_percent >= 0 }}
+            trend={{ value: d.restaurants_change_percent, isPositive: d.restaurants_change_percent >= 0 }}
           />
         </div>
 
@@ -79,7 +80,7 @@ export default function DashboardPage() {
           <div className="card p-6">
             <h3 className="mb-4 text-lg font-semibold text-admin-900">Orders Over Time</h3>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={data.orders_over_time}>
+              <LineChart data={d.orders_over_time}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="label" tick={{ fontSize: 12 }} stroke="#94a3b8" />
                 <YAxis tick={{ fontSize: 12 }} stroke="#94a3b8" />
@@ -107,7 +108,7 @@ export default function DashboardPage() {
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie
-                  data={data.revenue_breakdown}
+                  data={d.revenue_breakdown}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
@@ -115,7 +116,7 @@ export default function DashboardPage() {
                   paddingAngle={3}
                   dataKey="value"
                 >
-                  {data.revenue_breakdown.map((entry, index) => (
+                  {d.revenue_breakdown.map((entry: any, index: number) => (
                     <Cell key={entry.name} fill={entry.color || COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -149,7 +150,7 @@ export default function DashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-admin-100">
-                  {data.recent_orders.slice(0, 10).map((order) => (
+                  {(d.recent_orders || []).slice(0, 10).map((order: any) => (
                     <tr key={order.id} className="hover:bg-admin-50">
                       <td className="px-4 py-3 font-medium text-admin-900">#{order.order_number}</td>
                       <td className="px-4 py-3 text-admin-700">{order.customer_name}</td>
@@ -168,7 +169,7 @@ export default function DashboardPage() {
           <div className="card p-6">
             <h3 className="mb-4 text-lg font-semibold text-admin-900">Top Restaurants</h3>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={data.top_restaurants.slice(0, 8)}>
+              <BarChart data={(d.top_restaurants || []).slice(0, 8)}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="#94a3b8" angle={-20} textAnchor="end" />
                 <YAxis tick={{ fontSize: 12 }} stroke="#94a3b8" />

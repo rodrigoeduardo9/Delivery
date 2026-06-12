@@ -4,6 +4,7 @@ import { successResponse, errorResponse } from '../../shared/response';
 import { catchAsync } from '../../middleware/errorHandler';
 import { query } from '../../config/database';
 import * as authService from './auth.service';
+import { sendWelcomeEmail, sendPasswordResetEmail } from '../../services/email.service';
 
 export const register = catchAsync(async (req: Request, res: Response) => {
   const { email, password, first_name, last_name, phone, role } = req.body;
@@ -13,8 +14,11 @@ export const register = catchAsync(async (req: Request, res: Response) => {
     return errorResponse(res, 'Email already registered', 409);
   }
 
-  const user = await authService.createUser(email, password, first_name, last_name, phone, role);
+  const verificationToken = uuidv4();
+  const user = await authService.createUser(email, password, first_name, last_name, phone, role, verificationToken);
   const tokens = await authService.generateTokens(user);
+
+  sendWelcomeEmail(email, first_name, verificationToken);
 
   return successResponse(res, {
     user: {
@@ -109,7 +113,9 @@ export const forgotPassword = catchAsync(async (req: Request, res: Response) => 
     [resetToken, expiresAt, user.id]
   );
 
-  return successResponse(res, { resetToken }, 200, 'Password reset email sent');
+  await sendPasswordResetEmail(email, user.first_name, resetToken);
+
+  return successResponse(res, null, 200, 'If the email exists, a reset link has been sent');
 });
 
 export const resetPassword = catchAsync(async (req: Request, res: Response) => {

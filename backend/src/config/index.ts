@@ -37,10 +37,18 @@ export const config = {
 
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY || '',
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
   },
 
   mercadopago: {
     accessToken: process.env.MERCADO_PAGO_ACCESS_TOKEN || '',
+    publicKey: process.env.MERCADO_PAGO_PUBLIC_KEY || '',
+  },
+
+  redis: {
+    host: process.env.REDIS_HOST || 'localhost',
+    port: parseInt(process.env.REDIS_PORT || '6379', 10),
+    password: process.env.REDIS_PASSWORD || '',
   },
 
   smtp: {
@@ -48,5 +56,10 @@ export const config = {
     port: parseInt(process.env.SMTP_PORT || '587', 10),
     user: process.env.SMTP_USER || '',
     pass: process.env.SMTP_PASS || '',
+  },
+
+  upload: {
+    dir: process.env.UPLOAD_DIR || './uploads',
+    maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760', 10),
   },
 };

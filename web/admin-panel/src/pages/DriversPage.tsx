@@ -25,7 +25,7 @@ export default function DriversPage() {
   const [confirmAction, setConfirmAction] = useState<{ type: string; id: string } | null>(null);
   const [previewDoc, setPreviewDoc] = useState<DriverDocument | null>(null);
 
-  const { data, isLoading, error, refetch } = useApi<PaginatedResponse<Driver>>('/drivers', {
+  const { data, isLoading, error, refetch } = useApi<PaginatedResponse<Driver>>('/drivers/admin', {
     params: { status: statusFilter, vehicle_type: vehicleFilter, search },
   });
 
@@ -39,8 +39,8 @@ export default function DriversPage() {
       if (!confirmAction) return;
       try {
         const endpoint = action === 'verify'
-          ? `/drivers/${confirmAction.id}/verify`
-          : `/drivers/${confirmAction.id}/suspend`;
+          ? `/drivers/admin/${confirmAction.id}/verify`
+          : `/drivers/admin/${confirmAction.id}/status`;
         await updateStatus('post', endpoint);
         toast.success(`Driver ${action === 'verify' ? 'verified' : 'suspended'} successfully`);
         refetch();
@@ -90,7 +90,7 @@ export default function DriversPage() {
         cell: ({ row }) => (
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-50 text-primary-600 font-bold">
-              {row.original.name.charAt(0)}
+              {(row.original.name ?? '?').charAt(0)}
             </div>
             <div>
               <p className="font-medium text-admin-900">{row.original.name}</p>
@@ -122,7 +122,7 @@ export default function DriversPage() {
           return (
             <div className="flex items-center gap-1">
               <Star className="h-3.5 w-3.5 text-warning-500 fill-warning-500" />
-              <span className="font-medium">{val?.toFixed(1) || '-'}</span>
+              <span className="font-medium">{val != null ? Number(val).toFixed(1) : '-'}</span>
             </div>
           );
         },
@@ -241,7 +241,7 @@ export default function DriversPage() {
           {selectedDriver?.documents?.map((doc) => (
             <div key={doc.id} className="flex items-center justify-between rounded-lg border p-4">
               <div>
-                <p className="font-medium text-admin-900 capitalize">{doc.type.replace(/_/g, ' ')}</p>
+                <p className="font-medium text-admin-900 capitalize">{(doc.type || '').replace(/_/g, ' ')}</p>
                 <p className="text-xs text-admin-500">Uploaded {formatDate(doc.uploaded_at)}</p>
                 <StatusBadge status={doc.status} />
               </div>
@@ -266,7 +266,7 @@ export default function DriversPage() {
           {previewDoc && (
             <div className="mt-4 rounded-lg border overflow-hidden">
               <div className="flex items-center justify-between bg-admin-50 px-4 py-2">
-                <span className="text-sm font-medium capitalize">{previewDoc.type.replace(/_/g, ' ')}</span>
+                <span className="text-sm font-medium capitalize">{(previewDoc.type || '').replace(/_/g, ' ')}</span>
                 <button onClick={() => setPreviewDoc(null)} className="text-admin-500 hover:text-admin-700">Close</button>
               </div>
               <div className="flex items-center justify-center bg-admin-100 p-8">
@@ -288,7 +288,7 @@ export default function DriversPage() {
             <div className="text-center">
               <MapPin className="mx-auto h-12 w-12 text-primary-500 mb-4" />
               <p className="font-medium">
-                Lat: {selectedDriver.current_location.latitude.toFixed(4)}, Lng: {selectedDriver.current_location.longitude.toFixed(4)}
+                Lat: {selectedDriver.current_location.latitude != null ? Number(selectedDriver.current_location.latitude).toFixed(4) : '-'}, Lng: {selectedDriver.current_location.longitude != null ? Number(selectedDriver.current_location.longitude).toFixed(4) : '-'}
               </p>
               <p className="text-sm text-admin-500">
                 Updated: {formatDate(selectedDriver.current_location.updated_at)}

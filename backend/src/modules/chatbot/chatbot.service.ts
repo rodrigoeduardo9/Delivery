@@ -62,6 +62,49 @@ async function searchRestaurants(searchTerm: string): Promise<string> {
   ).join('\n');
 }
 
+async function getRestaurantInfo(restaurantId: string): Promise<string> {
+  const result = await query(
+    `SELECT r.name, r.description, r.city, r.address, r.phone, r.rating,
+            r.delivery_fee, r.minimum_order, r.is_active, r.created_at,
+            json_agg(json_build_object('name', p.name, 'price', p.price, 'category', p.category)) as products
+     FROM restaurant r
+     LEFT JOIN product p ON p.restaurant_id = r.id AND p.is_deleted = FALSE
+     WHERE r.id = $1 AND r.is_deleted = FALSE
+     GROUP BY r.id`,
+    [restaurantId]
+  );
+  if (result.rows.length === 0) return 'Restaurant not found.';
+  const r = result.rows[0];
+  let reply = `📍 *${r.name}*\n${r.description || ''}\n${r.address}, ${r.city}\nPhone: ${r.phone || 'N/A'} | Rating: ${r.rating || 'N/A'} | Delivery fee: $${r.delivery_fee} | Min order: $${r.minimum_order}`;
+  if (r.products?.length) {
+    const grouped: Record<string, any[]> = {};
+    for (const p of r.products) {
+      if (!p.name) continue;
+      const cat = p.category || 'General';
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push(p);
+    }
+    reply += '\n\n📋 Menu:';
+    for (const [cat, items] of Object.entries(grouped)) {
+      reply += `\n  *${cat}*: `;
+      reply += items.map((p: any) => `${p.name} ($${p.price})`).join(', ');
+    }
+  }
+  return reply;
+}
+
+async function getProductInfo(productId: string): Promise<string> {
+  const result = await query(
+    `SELECT p.name, p.description, p.price, p.category, p.image_url, p.is_available, r.name as restaurant_name
+     FROM product p JOIN restaurant r ON p.restaurant_id = r.id
+     WHERE p.id = $1 AND p.is_deleted = FALSE`,
+    [productId]
+  );
+  if (result.rows.length === 0) return 'Product not found.';
+  const p = result.rows[0];
+  return `🍽 *${p.name}*\n${p.description || 'No description'}\nPrice: $${p.price} | Category: ${p.category || 'General'}\nRestaurant: ${p.restaurant_name} | Available: ${p.is_available ? 'Yes' : 'No'}`;
+}
+
 async function executeToolCall(toolName: string, args: any): Promise<string> {
   switch (toolName) {
     case 'get_order_status':
@@ -69,9 +112,9 @@ async function executeToolCall(toolName: string, args: any): Promise<string> {
     case 'search_restaurants':
       return searchRestaurants(args.search_term);
     case 'get_restaurant_info':
-      return `Restaurant info for ${args.restaurant_id} - feature coming soon`;
+      return getRestaurantInfo(args.restaurant_id);
     case 'get_product_info':
-      return `Product info for ${args.product_id} - feature coming soon`;
+      return getProductInfo(args.product_id);
     default:
       return `Unknown tool: ${toolName}`;
   }
@@ -112,6 +155,24 @@ export async function processMessage(
             type: 'object',
             properties: { search_term: { type: 'string', description: 'Search term for restaurant name or cuisine' } },
             required: ['search_term'],
+          },
+        },
+        {
+          name: 'get_restaurant_info',
+          description: 'Get full details about a specific restaurant including its menu',
+          parameters: {
+            type: 'object',
+            properties: { restaurant_id: { type: 'string', description: 'Restaurant UUID' } },
+            required: ['restaurant_id'],
+          },
+        },
+        {
+          name: 'get_product_info',
+          description: 'Get details about a specific product/menu item',
+          parameters: {
+            type: 'object',
+            properties: { product_id: { type: 'string', description: 'Product UUID' } },
+            required: ['product_id'],
           },
         },
       ],

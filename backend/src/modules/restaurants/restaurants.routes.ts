@@ -25,5 +25,8 @@ router.post('/:id/products', authenticate, validate(createProductValidation), re
 router.put('/:id/products/:productId', authenticate, restaurantsController.updateRestaurantProduct);
 router.delete('/:id/products/:productId', authenticate, restaurantsController.deleteRestaurantProduct);
 router.post('/:id/zones', authenticate, restaurantsController.addZone);
+router.post('/:id/logo', authenticate, restaurantsController.uploadRestaurantLogo);
+router.post('/:id/banner', authenticate, restaurantsController.uploadRestaurantBanner);
+router.post('/:id/products/:productId/image', authenticate, restaurantsController.uploadProductImageHandler);
 
 export default router;

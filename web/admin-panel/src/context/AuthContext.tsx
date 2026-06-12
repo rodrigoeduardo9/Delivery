@@ -33,8 +33,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (storedToken && storedUser) {
       try {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
+        const parsed = JSON.parse(storedUser);
+        parsed.name = parsed.name || `${parsed.first_name || ''} ${parsed.last_name || ''}`.trim() || 'Admin';
+        setUser(parsed);
       } catch {
         localStorage.removeItem('admin_token');
         localStorage.removeItem('admin_user');
@@ -45,8 +46,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     try {
-      const response = await api.post('/auth/admin/login', { email, password });
-      const { token: newToken, user: userData } = response.data;
+      const response = await api.post('/auth/login', { email, password });
+      const { data: { user: rawUser, accessToken: newToken } } = response.data;
+
+      const userData: User = {
+        ...rawUser,
+        name: rawUser.name || `${rawUser.first_name || ''} ${rawUser.last_name || ''}`.trim() || 'Admin',
+      };
 
       localStorage.setItem('admin_token', newToken);
       localStorage.setItem('admin_user', JSON.stringify(userData));

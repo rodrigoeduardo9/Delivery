@@ -1,14 +1,32 @@
 import app from './app';
 import { config } from './config';
 import { logger } from './config/logger';
+import { getRedis, closeRedis } from './config/redis';
+import { setupWebSocket, closeWebSocket } from './services/websocket.service';
 
 const server = app.listen(config.port, () => {
   logger.info(`Server running on port ${config.port} in ${config.nodeEnv} mode`);
   logger.info(`Health check: http://localhost:${config.port}/api/v1/health`);
+
+  try {
+    setupWebSocket(server);
+  } catch (err) {
+    logger.warn('WebSocket setup failed (Redis may be unavailable):', err);
+  }
+
+  try {
+    getRedis();
+  } catch (err) {
+    logger.warn('Redis setup failed (Redis may be unavailable):', err);
+  }
 });
 
 const gracefulShutdown = async (signal: string) => {
   logger.info(`${signal} received. Shutting down gracefully...`);
+
+  await closeWebSocket();
+  await closeRedis();
+
   server.close(() => {
     logger.info('HTTP server closed');
     process.exit(0);

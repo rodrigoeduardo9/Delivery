@@ -5,7 +5,8 @@ export async function findAllUsers(
   page: number = 1,
   limit: number = 20,
   role?: string,
-  search?: string
+  search?: string,
+  status?: string
 ): Promise<{ users: User[]; total: number }> {
   const offset = (page - 1) * limit;
   const conditions: string[] = ['is_deleted = FALSE'];
@@ -15,6 +16,14 @@ export async function findAllUsers(
   if (role) {
     conditions.push(`role = $${paramIndex++}`);
     params.push(role);
+  }
+
+  if (status) {
+    if (status === 'active') {
+      conditions.push(`is_active = TRUE`);
+    } else if (status === 'suspended') {
+      conditions.push(`is_active = FALSE`);
+    }
   }
 
   if (search) {
@@ -37,6 +46,14 @@ export async function findAllUsers(
   );
 
   return { users: result.rows, total };
+}
+
+export async function toggleUserStatus(id: string): Promise<User | null> {
+  const result = await query(
+    `UPDATE user_account SET is_active = NOT is_active WHERE id = $1 AND is_deleted = FALSE RETURNING id, email, first_name, last_name, role, is_active`,
+    [id]
+  );
+  return result.rows[0] || null;
 }
 
 export async function findUserById(id: string): Promise<User | null> {

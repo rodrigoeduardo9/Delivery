@@ -198,9 +198,12 @@ export async function findProductsByRestaurant(
 }
 
 export async function syncRestaurantStatus(restaurantId: string): Promise<boolean> {
+  const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+  const today = dayNames[new Date().getDay()];
+
   const hoursResult = await query(
-    `SELECT * FROM restaurant_hours WHERE restaurant_id = $1 AND day_of_week = LOWER(TRIM(TO_CHAR(NOW(), 'day'))) AND is_closed = FALSE`,
-    [restaurantId]
+    `SELECT * FROM restaurant_hours WHERE restaurant_id = $1 AND day_of_week = $2 AND is_closed = FALSE`,
+    [restaurantId, today]
   );
 
   if (hoursResult.rows.length === 0) {
@@ -210,11 +213,21 @@ export async function syncRestaurantStatus(restaurantId: string): Promise<boolea
 
   const hour = hoursResult.rows[0];
   const now = new Date();
-  const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-  const isOpen = currentTime >= hour.open_time.slice(0, 5) && currentTime <= hour.close_time.slice(0, 5);
+  const openParts = hour.open_time.slice(0, 5).split(':');
+  const closeParts = hour.close_time.slice(0, 5).split(':');
+  const openMinutes = parseInt(openParts[0]) * 60 + parseInt(openParts[1]);
+  const closeMinutes = parseInt(closeParts[0]) * 60 + parseInt(closeParts[1]);
+
+  let isOpen: boolean;
+  if (closeMinutes <= openMinutes) {
+    isOpen = currentMinutes >= openMinutes || currentMinutes <= closeMinutes;
+  } else {
+    isOpen = currentMinutes >= openMinutes && currentMinutes <= closeMinutes;
+  }
+
   await query(`UPDATE restaurant SET is_open = $1 WHERE id = $2`, [isOpen, restaurantId]);
-
   return isOpen;
 }
 

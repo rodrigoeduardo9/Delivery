@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { successResponse, errorResponse, paginatedResponse } from '../../shared/response';
 import { catchAsync } from '../../middleware/errorHandler';
+import { uploadRestaurantImage, uploadProductImage } from '../../middleware/upload';
 import * as restaurantsService from './restaurants.service';
 
 export const createRestaurant = catchAsync(async (req: Request, res: Response) => {
@@ -136,4 +137,37 @@ export const getRestaurantReviews = catchAsync(async (req: Request, res: Respons
 export const getRestaurantAvailability = catchAsync(async (req: Request, res: Response) => {
   const isOpen = await restaurantsService.syncRestaurantStatus(req.params.id);
   return successResponse(res, { is_open: isOpen });
+});
+
+export const uploadRestaurantLogo = catchAsync(async (req: Request, res: Response) => {
+  uploadRestaurantImage(req, res, async (err) => {
+    if (err) return errorResponse(res, err.message, 400);
+    if (!req.files || !(req.files as any).logo) return errorResponse(res, 'No logo file uploaded', 400);
+    const logoUrl = `/uploads/logos/${(req.files as any).logo[0].filename}`;
+    const restaurant = await restaurantsService.updateRestaurant(req.params.id, { logo_url: logoUrl } as any);
+    if (!restaurant) return errorResponse(res, 'Restaurant not found', 404);
+    return successResponse(res, { logo_url: logoUrl }, 200, 'Logo uploaded successfully');
+  });
+});
+
+export const uploadRestaurantBanner = catchAsync(async (req: Request, res: Response) => {
+  uploadRestaurantImage(req, res, async (err) => {
+    if (err) return errorResponse(res, err.message, 400);
+    if (!req.files || !(req.files as any).banner) return errorResponse(res, 'No banner file uploaded', 400);
+    const bannerUrl = `/uploads/banners/${(req.files as any).banner[0].filename}`;
+    const restaurant = await restaurantsService.updateRestaurant(req.params.id, { banner_url: bannerUrl } as any);
+    if (!restaurant) return errorResponse(res, 'Restaurant not found', 404);
+    return successResponse(res, { banner_url: bannerUrl }, 200, 'Banner uploaded successfully');
+  });
+});
+
+export const uploadProductImageHandler = catchAsync(async (req: Request, res: Response) => {
+  uploadProductImage(req, res, async (err) => {
+    if (err) return errorResponse(res, err.message, 400);
+    if (!req.file) return errorResponse(res, 'No image file uploaded', 400);
+    const imageUrl = `/uploads/products/${req.file.filename}`;
+    const product = await restaurantsService.updateProduct(req.params.productId, req.params.id, { image_url: imageUrl } as any);
+    if (!product) return errorResponse(res, 'Product not found', 404);
+    return successResponse(res, { image_url: imageUrl }, 200, 'Product image uploaded successfully');
+  });
 });

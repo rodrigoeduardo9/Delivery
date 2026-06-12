@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; color: #333; line-height: 1.6; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: #22c55e; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+    .content { padding: 20px; background: #f9fafb; }
+    .items { width: 100%; border-collapse: collapse; margin: 16px 0; }
+    .items th { background: #e5e7eb; padding: 8px; text-align: left; }
+    .items td { padding: 8px; border-bottom: 1px solid #e5e7eb; }
+    .total { font-size: 18px; font-weight: bold; text-align: right; margin-top: 16px; }
+    .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header"><h1>Order Confirmed!</h1></div>
+    <div class="content">
+      <p>Hi {{name}},</p>
+      <p>Your order <strong>#{{orderNumber}}</strong> has been confirmed.</p>
+      <table class="items">
+        <thead><tr><th>Item</th><th>Qty</th><th>Price</th></tr></thead>
+        <tbody>
+          {{#each items}}
+          <tr><td>{{this.name}}</td><td>{{this.quantity}}</td><td>${{this.price}}</td></tr>
+          {{/each}}
+        </tbody>
+      </table>
+      <div class="total">Total: {{total}}</div>
+    </div>
+    <div class="footer"><p>Delivery Platform — Your favorite food, delivered fast.</p></div>
+  </div>
+</body>
+</html>

@@ -16,7 +16,7 @@ export default function StatusBadge({ status, type = 'default' }: StatusBadgePro
         colors[status] || 'bg-admin-100 text-admin-600'
       )}
     >
-      {status.replace(/_/g, ' ')}
+      {(status ?? '').replace(/_/g, ' ')}
     </span>
   );
 }

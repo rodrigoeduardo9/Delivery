@@ -94,7 +94,7 @@ export default function RestaurantsPage() {
         cell: ({ row }) => (
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-50 text-primary-600 font-bold">
-              {row.original.name.charAt(0)}
+              {(row.original.name ?? '?').charAt(0)}
             </div>
             <div>
               <p className="font-medium text-admin-900">{row.original.name}</p>
@@ -123,7 +123,7 @@ export default function RestaurantsPage() {
           return (
             <div className="flex items-center gap-1">
               <Star className="h-3.5 w-3.5 text-warning-500 fill-warning-500" />
-              <span className="font-medium">{val?.toFixed(1) || '-'}</span>
+              <span className="font-medium">{val != null ? Number(val).toFixed(1) : '-'}</span>
             </div>
           );
         },

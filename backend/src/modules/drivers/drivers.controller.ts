@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { successResponse, errorResponse, paginatedResponse } from '../../shared/response';
 import { catchAsync } from '../../middleware/errorHandler';
 import { query } from '../../config/database';
+import { uploadDocument } from '../../middleware/upload';
 import * as driversService from './drivers.service';
 
 export const getMyProfile = catchAsync(async (req: Request, res: Response) => {
@@ -112,7 +113,66 @@ export const acceptOrder = catchAsync(async (req: Request, res: Response) => {
 });
 
 export const rejectOrder = catchAsync(async (req: Request, res: Response) => {
+  const profile = await driversService.getDriverProfileByUserId(req.user!.userId);
+  if (!profile) {
+    return errorResponse(res, 'Driver profile not found', 404);
+  }
+
+  const order = await query(
+    `SELECT * FROM orders WHERE id = $1 AND driver_id = $2 AND status IN ('confirmed', 'picked_up')`,
+    [req.params.id, profile.id]
+  );
+
+  if (order.rows.length === 0) {
+    return errorResponse(res, 'Order not found or cannot be rejected at current status', 400);
+  }
+
+  await query(
+    `UPDATE orders SET driver_id = NULL WHERE id = $1`,
+    [req.params.id]
+  );
+
+  await query(
+    `UPDATE driver_profile SET status = 'online', is_available = TRUE WHERE id = $1`,
+    [profile.id]
+  );
+
+  await query(
+    `INSERT INTO order_status_history (order_id, status, changed_by, note)
+     VALUES ($1, 'confirmed', (SELECT user_id FROM driver_profile WHERE id = $2), 'Driver rejected order')`,
+    [req.params.id, profile.id]
+  );
+
   return successResponse(res, null, 200, 'Order rejected');
+});
+
+export const uploadDriverDocument = catchAsync(async (req: Request, res: Response) => {
+  const profile = await driversService.getDriverProfileByUserId(req.user!.userId);
+  if (!profile) {
+    return errorResponse(res, 'Driver profile not found', 404);
+  }
+
+  uploadDocument(req, res, async (err) => {
+    if (err) return errorResponse(res, err.message, 400);
+    if (!req.file) return errorResponse(res, 'No file uploaded', 400);
+
+    const { document_type } = req.body;
+    if (!document_type) return errorResponse(res, 'document_type is required', 400);
+
+    const validTypes = ['license', 'insurance', 'vehicle_registration', 'background_check', 'profile_photo'];
+    if (!validTypes.includes(document_type)) {
+      return errorResponse(res, 'Invalid document type', 400);
+    }
+
+    const documentUrl = `/uploads/documents/${req.file.filename}`;
+    await query(
+      `INSERT INTO driver_document (driver_profile_id, document_type, document_url, status)
+       VALUES ($1, $2, $3, 'pending')`,
+      [profile.id, document_type, documentUrl]
+    );
+
+    return successResponse(res, { document_url: documentUrl }, 201, 'Document uploaded successfully');
+  });
 });
 
 export const markPickedUp = catchAsync(async (req: Request, res: Response) => {
